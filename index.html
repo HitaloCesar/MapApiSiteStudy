@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador de Impacto de Meteoro</title>
+
+    <script src='https://api.mapbox.com/mapbox-gl-js/v2.9.1/mapbox-gl.js'></script>
+    <link href='https://api.mapbox.com/mapbox-gl-js/v2.9.1/mapbox-gl.css' rel='stylesheet' />
+
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id='map'></div>
+
+    <div class="ui-container">
+        <h1>Simulador de Impacto</h1>
+        <p>Clique em qualquer lugar no mapa para simular.</p>
+        
+        <label for="meteorSize">Tamanho do Meteoro:</label>
+        <input type="range" id="meteorSize" name="meteorSize" min="1" max="100" value="30">
+        <span id="sizeValue">30 km</span>
+    </div>
+
+    <script src="script.js"></script>
+
+</body>
+</html>

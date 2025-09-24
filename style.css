@@ -1,0 +1,46 @@
+/* Remove margens padrão e garante que tudo ocupe 100% da altura */
+body, html {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font-family: Arial, sans-serif; /* Uma fonte limpa */
+}
+
+/* Faz o container do mapa ocupar a tela inteira */
+#map {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 100%;
+}
+
+/* Estilizando o painel da nossa UI */
+.ui-container {
+    position: absolute; /* Posição absoluta em relação à tela */
+    top: 20px;
+    left: 20px;
+    background-color: rgba(35, 55, 75, 0.9); /* Fundo semi-transparente */
+    color: #fff; /* Texto branco */
+    padding: 20px;
+    border-radius: 8px; /* Bordas arredondadas */
+    z-index: 1; /* Garante que a UI fique SOBRE o mapa */
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3); /* Uma sombra sutil */
+}
+
+h1 {
+    margin: 0 0 10px 0;
+}
+
+p {
+    font-size: 14px;
+    margin-bottom: 20px;
+}
+
+label {
+    display: block; /* Faz o label ocupar uma linha inteira */
+    margin-bottom: 5px;
+}
+
+input[type="range"] {
+    width: 100%; /* Ocupa toda a largura do container */
+}
