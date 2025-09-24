@@ -44,3 +44,26 @@ label {
 input[type="range"] {
     width: 100%; /* Ocupa toda a largura do container */
 }
+
+label {
+    display: block;
+    margin-top: 15px; /* Adiciona um espaço entre os sliders */
+    margin-bottom: 5px;
+}
+
+/* Estilo para o painel de resultados */
+.results-panel {
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid #777; /* Uma linha para separar */
+}
+
+.results-panel h2 {
+    margin: 0 0 10px 0;
+    font-size: 16px;
+}
+
+.results-panel p {
+    font-size: 14px;
+    margin: 5px 0;
+}

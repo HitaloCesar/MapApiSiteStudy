@@ -4,109 +4,149 @@
 mapboxgl.accessToken = 'pk.eyJ1IjoiaGl0YWxvY2VzYXIiLCJhIjoiY21meThmbDJtMGhtajJpcTRuMHE1cjhqbSJ9.1kCgp-2P5oC9qXY5KwaUtA';
 
 const map = new mapboxgl.Map({
-    container: 'map', // ID do div no HTML
-    style: 'mapbox://styles/mapbox/satellite-streets-v11', // Estilo de satélite, fica mais legal!
-    center: [-47.06, -22.90], // Coordenadas iniciais (ex: Campinas)
+    container: 'map',
+    style: 'mapbox://styles/mapbox/satellite-streets-v11',
+    center: [-47.06, -22.90],
     zoom: 8,
-    projection: 'globe' // Projeção em globo para um efeito mais "espacial"
+    projection: 'globe'
 });
 
-// Referências para os elementos da UI
+// --- REFERÊNCIAS E EVENTOS DA UI ---
+
+// Elementos para o tamanho
 const sizeSlider = document.getElementById('meteorSize');
 const sizeValueSpan = document.getElementById('sizeValue');
+// Elementos para a velocidade
+const velocitySlider = document.getElementById('meteorVelocity');
+const velocityValueSpan = document.getElementById('velocityValue');
+// Elementos para os resultados
+const energyResultP = document.getElementById('energyResult');
+const craterResultP = document.getElementById('craterResult');
 
-// Atualiza o texto do tamanho do meteoro quando o slider muda
-sizeSlider.addEventListener('input', (event) => {
-    sizeValueSpan.textContent = `${event.target.value} km`;
+// Atualiza o texto do tamanho quando o slider muda
+sizeSlider.addEventListener('input', (e) => {
+    sizeValueSpan.textContent = `${e.target.value} m`;
 });
 
+// Atualiza o texto da velocidade quando o slider muda
+velocitySlider.addEventListener('input', (e) => {
+    velocityValueSpan.textContent = `${e.target.value} km/s`;
+});
 
-// --- LÓGICA DO IMPACTO ---
+// Contador para garantir que cada impacto tenha uma ID única
+let impactCounter = 0;
 
-// Adiciona um "ouvinte" de cliques no mapa
+
+// --- LÓGICA DE CÁLCULO E IMPACTO ---
+
 map.on('click', (e) => {
-    const coords = e.lngLat; // Pega as coordenadas (longitude, latitude) do clique
-    const meteorSize = sizeSlider.value; // Pega o valor atual do slider
+    // 1. Pega os inputs do usuário
+    const coords = e.lngLat;
+    const meteorDiameterMeters = sizeSlider.value;
+    const meteorVelocityKms = velocitySlider.value;
 
-    // Chama a função que cria o efeito visual
-    createImpactEffect(coords, meteorSize);
+    // 2. Calcula os resultados do impacto
+    const impactResults = calculateImpact(meteorDiameterMeters, meteorVelocityKms);
+
+    // 3. Mostra os resultados na UI
+    energyResultP.textContent = `Energia Liberada: ${impactResults.energyMegatons.toFixed(2)} Megatons`;
+    craterResultP.textContent = `Diâmetro da Cratera: ${impactResults.craterDiameterKm.toFixed(2)} km`;
+
+    // 4. Cria o efeito visual no mapa
+    createImpactEffect(coords, impactResults.craterDiameterMeters);
 });
 
-function createImpactEffect(centerCoords, size) {
-    // Remove efeitos antigos, caso existam, para não poluir o mapa
-    if (map.getLayer('impact-crater')) map.removeLayer('impact-crater');
-    if (map.getLayer('shockwave')) map.removeLayer('shockwave');
-    if (map.getSource('impact-source')) map.removeSource('impact-source');
+function calculateImpact(diameter, velocity) {
+    // Constantes físicas
+    const DENSIDADE_METEORO = 3000; // kg/m^3 (rocha)
+    const JOULES_EM_UM_MEGATON = 4.184e15;
+    const CONSTANTE_CRATERA = 0.0035;
 
-    const impactRadiusMeters = size * 1000; // Converte o tamanho de km para metros
-    let currentShockwaveRadius = 0;
+    // Cálculos
+    const raio = diameter / 2;
+    const volume = (4 / 3) * Math.PI * Math.pow(raio, 3);
+    const massa = volume * DENSIDADE_METEORO;
+    const velocidadeMps = velocity * 1000; // Converte km/s para m/s
+
+    const energiaCineticaJoules = 0.5 * massa * Math.pow(velocidadeMps, 2);
+    const crateraDiametroMeters = CONSTANTE_CRATERA * Math.pow(energiaCineticaJoules, 1/3);
+
+    // Retorna os resultados de forma organizada
+    return {
+        energyMegatons: energiaCineticaJoules / JOULES_EM_UM_MEGATON,
+        craterDiameterMeters: crateraDiametroMeters,
+        craterDiameterKm: crateraDiametroMeters / 1000
+    };
+}
+
+function createImpactEffect(centerCoords, craterDiameterMeters) {
+    impactCounter++; // Incrementa para garantir IDs únicas
+    const sourceId = `impact-source-${impactCounter}`;
+    const craterLayerId = `impact-crater-${impactCounter}`;
+    const shockwaveLayerId = `shockwave-${impactCounter}`;
     
-    // 1. CRIA A FONTE DE DADOS
-    // Uma fonte de dados no Mapbox é como uma "planilha" de coordenadas.
-    // Aqui, criamos uma fonte com um único ponto: o local do impacto.
-    map.addSource('impact-source', {
+    // --- FONTE DE DADOS (PONTO DO IMPACTO) ---
+    map.addSource(sourceId, {
         'type': 'geojson',
         'data': {
             'type': 'FeatureCollection',
-            'features': [{
-                'type': 'Feature',
-                'geometry': {
-                    'type': 'Point',
-                    'coordinates': [centerCoords.lng, centerCoords.lat]
-                }
-            }]
+            'features': [{'type': 'Feature', 'geometry': {'type': 'Point', 'coordinates': [centerCoords.lng, centerCoords.lat]}}]
         }
     });
 
-    // 2. CRIA A CAMADA DA CRATERA
-    // Esta camada desenha um círculo escuro e fixo que representa a cratera.
+    // --- CAMADA DA CRATERA (PERMANENTE) ---
+    // Esta camada é adicionada e FICA no mapa.
     map.addLayer({
-        'id': 'impact-crater',
+        'id': craterLayerId,
         'type': 'circle',
-        'source': 'impact-source',
+        'source': sourceId,
         'paint': {
-            'circle-radius': impactRadiusMeters / 10, // A cratera é 10% do raio de impacto
-            'circle-color': '#000000',
-            'circle-opacity': 0.8
+            // Ajusta o raio do círculo na tela para corresponder ao tamanho real em metros
+            'circle-radius': {
+                stops: [
+                    [0, 0],
+                    [20, craterDiameterMeters / 20] // Ajuste dinâmico com o zoom
+                ],
+                base: 2
+            },
+            'circle-color': '#222', // Cor mais escura para a cratera
+            'circle-opacity': 0.8,
+            'circle-stroke-color': 'black',
+            'circle-stroke-width': 1
         }
     });
 
-    // 3. CRIA A CAMADA DA ONDA DE CHOQUE (QUE SERÁ ANIMADA)
+    // --- CAMADA DA ONDA DE CHOQUE (ANIMADA E TEMPORÁRIA) ---
     map.addLayer({
-        'id': 'shockwave',
+        'id': shockwaveLayerId,
         'type': 'circle',
-        'source': 'impact-source',
+        'source': sourceId,
         'paint': {
-            'circle-radius': 0, // Começa com raio 0
+            'circle-radius': 0,
             'circle-color': 'transparent',
-            'circle-stroke-color': '#ff9900', // Cor laranja/amarela
+            'circle-stroke-color': '#ff9900',
             'circle-stroke-width': 3,
             'circle-stroke-opacity': 1
         }
     });
 
-    // 4. ANIMAÇÃO
-    function animateShockwave() {
-        currentShockwaveRadius += impactRadiusMeters / 100; // Aumenta o raio a cada "frame"
-        
-        // Se a onda de choque ainda não atingiu o tamanho máximo
-        if (currentShockwaveRadius < impactRadiusMeters) {
-            map.setPaintProperty('shockwave', 'circle-radius', currentShockwaveRadius);
-            
-            // Diminui a opacidade da borda conforme ela expande
-            const opacity = 1 - (currentShockwaveRadius / impactRadiusMeters);
-            map.setPaintProperty('shockwave', 'circle-stroke-opacity', opacity);
+    // --- ANIMAÇÃO DA ONDA DE CHOQUE ---
+    let currentShockwaveRadius = 0;
+    const maxShockwaveRadius = craterDiameterMeters * 2; // Onda de choque é maior que a cratera
 
-            // Pede para o navegador chamar esta função novamente no próximo frame
+    function animateShockwave() {
+        currentShockwaveRadius += maxShockwaveRadius / 100;
+        
+        if (currentShockwaveRadius < maxShockwaveRadius) {
+            map.setPaintProperty(shockwaveLayerId, 'circle-radius', currentShockwaveRadius);
+            const opacity = 1 - (currentShockwaveRadius / maxShockwaveRadius);
+            map.setPaintProperty(shockwaveLayerId, 'circle-stroke-opacity', opacity);
             requestAnimationFrame(animateShockwave);
         } else {
-            // Animação terminou, remove as camadas para a próxima simulação
-            map.removeLayer('impact-crater');
-            map.removeLayer('shockwave');
-            map.removeSource('impact-source');
+            // Ao final da animação, remove APENAS a onda de choque e sua fonte
+            map.removeLayer(shockwaveLayerId);
         }
     }
 
-    // Inicia a animação!
     animateShockwave();
 }

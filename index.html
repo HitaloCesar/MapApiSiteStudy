@@ -18,9 +18,19 @@
         <h1>Simulador de Impacto</h1>
         <p>Clique em qualquer lugar no mapa para simular.</p>
         
-        <label for="meteorSize">Tamanho do Meteoro:</label>
-        <input type="range" id="meteorSize" name="meteorSize" min="1" max="100" value="30">
-        <span id="sizeValue">30 km</span>
+        <label for="meteorSize">Diâmetro do Meteoro (metros):</label>
+        <input type="range" id="meteorSize" min="10" max="1000" value="50">
+        <span id="sizeValue">50 m</span>
+
+        <label for="meteorVelocity">Velocidade (km/s):</label>
+        <input type="range" id="meteorVelocity" min="11" max="72" value="20">
+        <span id="velocityValue">20 km/s</span>
+
+        <div id="results" class="results-panel">
+            <h2>Último Impacto:</h2>
+            <p id="energyResult">Energia Liberada: -</p>
+            <p id="craterResult">Diâmetro da Cratera: -</p>
+        </div>
     </div>
 
     <script src="script.js"></script>
