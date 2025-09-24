@@ -28,7 +28,6 @@ const formatBigNumber = (num) => num.toLocaleString('pt-BR', { maximumFractionDi
 
 // Listeners para atualizar os valores na UI em tempo real
 sizeSlider.addEventListener('input', (e) => sizeValueSpan.textContent = `${formatNumber(e.target.value)} m`);
-// Corrigido para exibir a unidade "t" (toneladas)
 massSlider.addEventListener('input', (e) => massValueSpan.textContent = `${formatNumber(e.target.value)} t`);
 velocitySlider.addEventListener('input', (e) => velocityValueSpan.textContent = `${formatNumber(e.target.value)} km/s`);
 
@@ -43,7 +42,6 @@ let impactCounter = 0;
 function calculateImpact(massInTonnes, velocityInKms) {
     const JOULES_EM_UM_MEGATON = 4.184e15;
     const CONSTANTE_DEVASTACAO = 0.05;
-    // Corrigido para converter de toneladas (não milhões de toneladas) para kg
     const massaKg = massInTonnes * 1000; 
     const velocidadeMps = velocityInKms * 1000;
     const energiaCineticaJoules = 0.5 * massaKg * Math.pow(velocidadeMps, 2);
@@ -88,37 +86,34 @@ function createGradientCircleImpact(centerCoords, devastationRadiusMeters, meteo
         }
     });
 
-    const gradientSteps = 20; // Mais anéis para um degradê ainda mais suave
-    const maxOpacity = 0.65; // Opacidade máxima para garantir a translucidez
+    const gradientSteps = 20;
+    
+    // ================================================================================
+    // AQUI ESTÁ O AJUSTE: OPACIDADE MÁXIMA REDUZIDA
+    // ================================================================================
+    const maxOpacity = 0.45; // Antes era 0.65, agora é mais transparente
+    // ================================================================================
 
     const hotZoneColor = [255, 255, 255]; // Branco
     const midColor = [255, 0, 0];       // Vermelho
     const endColor = [255, 165, 0];      // Laranja
 
-    // Cria cada anel do degradê, de fora para dentro, para a sobreposição correta
+    // Cria cada anel do degradê
     for (let i = gradientSteps - 1; i >= 0; i--) {
-        const t = i / (gradientSteps - 1); // Posição no degradê (0.0 a 1.0)
+        const t = i / (gradientSteps - 1);
         const currentRadius = devastationRadiusMeters * t;
         
         let color, opacity;
 
-        // LÓGICA DO DEGRADÊ INTELIGENTE
         if (currentRadius <= meteorRadiusMeters) {
-            // Se o anel está DENTRO do diâmetro do meteoro, a cor e opacidade são máximas
             color = `rgb(${hotZoneColor[0]}, ${hotZoneColor[1]}, ${hotZoneColor[2]})`;
             opacity = maxOpacity;
         } else {
-            // Se está FORA, calcula o fade-out
-            // `fadeT` vai de 0 (borda do meteoro) a 1 (borda da devastação)
             const fadeT = (currentRadius - meteorRadiusMeters) / (devastationRadiusMeters - meteorRadiusMeters);
-            
-            // Interpola a cor do vermelho para o laranja
             const r = lerp(midColor[0], endColor[0], fadeT);
             const g = lerp(midColor[1], endColor[1], fadeT);
             const b = lerp(midColor[2], endColor[2], fadeT);
             color = `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
-
-            // Interpola a opacidade da máxima para zero
             opacity = lerp(maxOpacity, 0, fadeT);
         }
 
@@ -134,7 +129,7 @@ function createGradientCircleImpact(centerCoords, devastationRadiusMeters, meteo
                 ],
                 'circle-color': color,
                 'circle-opacity': opacity,
-                'circle-blur': 0.5 // Um leve blur para fundir as camadas
+                'circle-blur': 0.5
             }
         });
     }
