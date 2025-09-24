@@ -48,7 +48,7 @@ map.on('click', (e) => {
     const impactResults = calculateImpact(meteorMassTonnes, meteorVelocityKms);
 
     energyResultP.textContent = `Energia Liberada: ${formatBigNumber(impactResults.energyMegatons)} Megatons`;
-    craterResultP.textContent = `Área de Devastação: ~${formatBigNumber(impactResults.devastationRadiusKm)} km de raio`;
+    craterResultP.textContent = `Raio da Zona de Impacto: ~${formatBigNumber(impactResults.devastationRadiusKm)} km`;
 
     createImpactEffect(coords, impactResults.devastationRadiusMeters);
 });
@@ -74,18 +74,15 @@ function createImpactEffect(centerCoords, devastationRadiusMeters) {
     impactCounter++;
     const sourceId = `impact-source-${impactCounter}`;
     const heatmapLayerId = `impact-heatmap-${impactCounter}`;
-    const craterLayerId = `impact-crater-${impactCounter}`;
 
     const heatmapPoints = { type: 'FeatureCollection', features: [] };
     const numberOfPoints = 150;
     for (let i = 0; i < numberOfPoints; i++) {
-        const angle = Math.random() * 2 * Math.PI;
-        const radius = Math.sqrt(Math.random()) * devastationRadiusMeters;
+        const distanceKm = (Math.sqrt(Math.random()) * devastationRadiusMeters) / 1000;
         const bearing = Math.random() * 360;
-        const distanceKm = radius / 1000;
         
         const point = turf.destination([centerCoords.lng, centerCoords.lat], distanceKm, bearing);
-        const magnitude = 1.0 - (radius / devastationRadiusMeters);
+        const magnitude = 1.0 - (distanceKm * 1000 / devastationRadiusMeters);
 
         heatmapPoints.features.push({
             type: 'Feature',
@@ -93,43 +90,43 @@ function createImpactEffect(centerCoords, devastationRadiusMeters) {
             properties: { mag: magnitude }
         });
     }
+    // Adiciona um ponto de altíssima magnitude no centro para criar o "hotspot"
     heatmapPoints.features.push({
         type: 'Feature',
         geometry: { type: 'Point', coordinates: [centerCoords.lng, centerCoords.lat] },
-        properties: { mag: 2.0 }
+        properties: { mag: 2.5 } // Magnitude bem alta para o centro
     });
 
     map.addSource(sourceId, { type: 'geojson', data: heatmapPoints });
 
+    // A ÚNICA CAMADA DE VISUALIZAÇÃO DO IMPACTO
     map.addLayer({
         id: heatmapLayerId,
         type: 'heatmap',
         source: sourceId,
-        maxzoom: 15,
         paint: {
-            'heatmap-weight': ['get', 'mag'],
-            'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 0, 1, 15, 3],
+            'heatmap-weight': ['get', 'mag'], // Usa a magnitude para definir o "peso" de cada ponto
+            'heatmap-intensity': 1, // Intensidade geral do brilho
+            
+            // Paleta de cores aprimorada para o degradê
             'heatmap-color': [
                 'interpolate', ['linear'], ['heatmap-density'],
-                0, 'rgba(255, 220, 0, 0)',
-                0.2, 'rgba(255, 220, 0, 0.4)',
-                0.5, 'rgba(255, 165, 0, 0.6)',
-                0.8, 'rgba(255, 69, 0, 0.7)',
-                1, 'rgba(180, 0, 0, 0.8)'
+                0, 'rgba(255, 200, 0, 0)',       // Borda externa: Amarelo transparente
+                0.25, 'rgba(255, 165, 0, 0.5)',  // Laranja
+                0.5, 'rgba(255, 69, 0, 0.7)',    // Vermelho-Laranja
+                0.75, 'rgba(255, 0, 0, 0.8)',    // Vermelho
+                1, 'rgba(255, 255, 255, 0.95)'   // Centro: Branco "quente"
             ],
-            'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 0, 5, 9, 25, 15, 80],
-            'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 7, 0.9, 15, 0.7]
+            
+            // O raio de influência de cada ponto AUMENTA com o zoom, fazendo a área parecer fixa ao chão
+            'heatmap-radius': [
+                'interpolate', ['linear'], ['zoom'],
+                0, 2,     // No zoom 0, raio de 2px
+                9, 20,    // No zoom 9, raio de 20px
+                15, 100   // No zoom 15, raio de 100px
+            ],
+            
+            'heatmap-opacity': 0.85 // Opacidade geral da camada
         }
-    }, 'waterway-label');
-
-    map.addLayer({
-        id: craterLayerId,
-        type: 'circle',
-        source: sourceId,
-        paint: {
-            'circle-radius': parseFloat(sizeSlider.value) / 2,
-            'circle-color': '#000000',
-            'circle-opacity': 0.65
-        }
-    });
+    }, 'waterway-label'); // Adiciona a camada abaixo dos rótulos de rios para melhor visualização
 }
