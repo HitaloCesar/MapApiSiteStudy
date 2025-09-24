@@ -28,22 +28,24 @@ const formatBigNumber = (num) => num.toLocaleString('pt-BR', { maximumFractionDi
 
 // Listeners para atualizar os valores na UI em tempo real
 sizeSlider.addEventListener('input', (e) => sizeValueSpan.textContent = `${formatNumber(e.target.value)} m`);
-massSlider.addEventListener('input', (e) => massValueSpan.textContent = `${formatNumber(e.target.value)} Milhões de t`);
+// Corrigido para exibir a unidade "t" (toneladas)
+massSlider.addEventListener('input', (e) => massValueSpan.textContent = `${formatNumber(e.target.value)} t`);
 velocitySlider.addEventListener('input', (e) => velocityValueSpan.textContent = `${formatNumber(e.target.value)} km/s`);
 
 // Inicia os valores na UI
 sizeValueSpan.textContent = `${formatNumber(sizeSlider.value)} m`;
-massValueSpan.textContent = `${formatNumber(massSlider.value)} Milhões de t`;
+massValueSpan.textContent = `${formatNumber(massSlider.value)} t`;
 velocityValueSpan.textContent = `${formatNumber(velocitySlider.value)} km/s`;
 
 let impactCounter = 0;
 
-// --- LÓGICA DE CÁLCULO (Permanece a mesma) ---
-function calculateImpact(massInMillionsTonnes, velocityInKms) {
+// --- LÓGICA DE CÁLCULO ---
+function calculateImpact(massInTonnes, velocityInKms) {
     const JOULES_EM_UM_MEGATON = 4.184e15;
     const CONSTANTE_DEVASTACAO = 0.05;
-    const massaKg = massInMillionsTonnes * 1_000_000 * 1_000;
-    const velocidadeMps = velocityInKms * 1_000;
+    // Corrigido para converter de toneladas (não milhões de toneladas) para kg
+    const massaKg = massInTonnes * 1000; 
+    const velocidadeMps = velocityInKms * 1000;
     const energiaCineticaJoules = 0.5 * massaKg * Math.pow(velocidadeMps, 2);
     const devastationRadiusMeters = CONSTANTE_DEVASTACAO * Math.pow(energiaCineticaJoules, 1 / 3);
     return {
@@ -53,68 +55,72 @@ function calculateImpact(massInMillionsTonnes, velocityInKms) {
     };
 }
 
-
-// --- LÓGICA DE VISUALIZAÇÃO (COMPLETAMENTE REFEITA) ---
+// --- LÓGICA DE VISUALIZAÇÃO ---
 map.on('click', (e) => {
     const coords = e.lngLat;
-    const meteorMassMillionsTonnes = parseFloat(massSlider.value);
+    const meteorMassTonnes = parseFloat(massSlider.value);
     const meteorVelocityKms = parseFloat(velocitySlider.value);
+    const meteorDiameterMeters = parseFloat(sizeSlider.value);
 
-    const impactResults = calculateImpact(meteorMassMillionsTonnes, meteorVelocityKms);
+    const impactResults = calculateImpact(meteorMassTonnes, meteorVelocityKms);
     
     energyResultP.textContent = `Energia Liberada: ${formatBigNumber(impactResults.energyMegatons)} Megatons`;
     craterResultP.textContent = `Raio da Zona de Impacto: ~${formatBigNumber(impactResults.devastationRadiusKm)} km`;
 
-    // Chama a nova função de criação de impacto
-    createGradientCircleImpact(coords, impactResults.devastationRadiusMeters);
+    createGradientCircleImpact(coords, impactResults.devastationRadiusMeters, meteorDiameterMeters);
 });
 
-function createGradientCircleImpact(centerCoords, devastationRadiusMeters) {
+// Função de interpolação linear para cores e opacidade
+function lerp(start, end, t) {
+    return start * (1 - t) + end * t;
+}
+
+function createGradientCircleImpact(centerCoords, devastationRadiusMeters, meteorDiameterMeters) {
     impactCounter++;
     const sourceId = `impact-source-${impactCounter}`;
+    const meteorRadiusMeters = meteorDiameterMeters / 2;
 
-    // A fonte de dados agora é apenas um único ponto: o epicentro.
     map.addSource(sourceId, {
         type: 'geojson',
         data: {
             type: 'Feature',
-            geometry: {
-                type: 'Point',
-                coordinates: [centerCoords.lng, centerCoords.lat]
-            }
+            geometry: { type: 'Point', coordinates: [centerCoords.lng, centerCoords.lat] }
         }
     });
 
-    // Define as "camadas" do nosso degradê
-    const gradientSteps = 15; // Número de anéis para simular o degradê
-    const startColor = [255, 255, 255]; // Branco
-    const midColor = [255, 0, 0]; // Vermelho
-    const endColor = [255, 165, 0]; // Laranja
+    const gradientSteps = 20; // Mais anéis para um degradê ainda mais suave
+    const maxOpacity = 0.65; // Opacidade máxima para garantir a translucidez
 
-    // Cria cada anel do degradê, de dentro para fora
-    for (let i = 0; i < gradientSteps; i++) {
-        const t = i / (gradientSteps - 1); // Posição atual no degradê (0.0 a 1.0)
+    const hotZoneColor = [255, 255, 255]; // Branco
+    const midColor = [255, 0, 0];       // Vermelho
+    const endColor = [255, 165, 0];      // Laranja
+
+    // Cria cada anel do degradê, de fora para dentro, para a sobreposição correta
+    for (let i = gradientSteps - 1; i >= 0; i--) {
+        const t = i / (gradientSteps - 1); // Posição no degradê (0.0 a 1.0)
+        const currentRadius = devastationRadiusMeters * t;
         
-        // Interpola a cor
-        let r, g, b;
-        if (t < 0.5) {
-            const localT = t * 2;
-            r = startColor[0] + (midColor[0] - startColor[0]) * localT;
-            g = startColor[1] + (midColor[1] - startColor[1]) * localT;
-            b = startColor[2] + (midColor[2] - startColor[2]) * localT;
+        let color, opacity;
+
+        // LÓGICA DO DEGRADÊ INTELIGENTE
+        if (currentRadius <= meteorRadiusMeters) {
+            // Se o anel está DENTRO do diâmetro do meteoro, a cor e opacidade são máximas
+            color = `rgb(${hotZoneColor[0]}, ${hotZoneColor[1]}, ${hotZoneColor[2]})`;
+            opacity = maxOpacity;
         } else {
-            const localT = (t - 0.5) * 2;
-            r = midColor[0] + (endColor[0] - midColor[0]) * localT;
-            g = midColor[1] + (endColor[1] - midColor[1]) * localT;
-            b = midColor[2] + (endColor[2] - midColor[2]) * localT;
-        }
-        const color = `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
+            // Se está FORA, calcula o fade-out
+            // `fadeT` vai de 0 (borda do meteoro) a 1 (borda da devastação)
+            const fadeT = (currentRadius - meteorRadiusMeters) / (devastationRadiusMeters - meteorRadiusMeters);
+            
+            // Interpola a cor do vermelho para o laranja
+            const r = lerp(midColor[0], endColor[0], fadeT);
+            const g = lerp(midColor[1], endColor[1], fadeT);
+            const b = lerp(midColor[2], endColor[2], fadeT);
+            color = `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
 
-        // O raio de cada anel aumenta
-        const radius = devastationRadiusMeters * (1 - t);
-        
-        // A opacidade de cada anel diminui
-        const opacity = 0.5 * (1 - t);
+            // Interpola a opacidade da máxima para zero
+            opacity = lerp(maxOpacity, 0, fadeT);
+        }
 
         map.addLayer({
             id: `impact-ring-${impactCounter}-${i}`,
@@ -122,16 +128,13 @@ function createGradientCircleImpact(centerCoords, devastationRadiusMeters) {
             source: sourceId,
             paint: {
                 'circle-radius': [
-                    'interpolate',
-                    ['exponential', 2],
-                    ['zoom'],
-                    // Para um raio de X metros no chão, quantos pixels ele deve ter em cada zoom
+                    'interpolate', ['exponential', 2], ['zoom'],
                     0, 0,
-                    22, ['/', radius, 0.005 * Math.cos(centerCoords.lat * Math.PI / 180)]
+                    22, ['/', currentRadius, 0.005 * Math.cos(centerCoords.lat * Math.PI / 180)]
                 ],
                 'circle-color': color,
                 'circle-opacity': opacity,
-                'circle-blur': 1 // Adiciona um blur para suavizar a transição entre os anéis
+                'circle-blur': 0.5 // Um leve blur para fundir as camadas
             }
         });
     }
