@@ -38,30 +38,14 @@ velocityValueSpan.textContent = `${formatNumber(velocitySlider.value)} km/s`;
 
 let impactCounter = 0;
 
-// --- LÓGICA DE CÁLCULO E IMPACTO ---
-map.on('click', (e) => {
-    const coords = e.lngLat;
-    const meteorMassMillionsTonnes = parseFloat(massSlider.value);
-    const meteorVelocityKms = parseFloat(velocitySlider.value);
-
-    const impactResults = calculateImpact(meteorMassMillionsTonnes, meteorVelocityKms);
-
-    energyResultP.textContent = `Energia Liberada: ${formatBigNumber(impactResults.energyMegatons)} Megatons`;
-    craterResultP.textContent = `Raio da Zona de Impacto: ~${formatBigNumber(impactResults.devastationRadiusKm)} km`;
-
-    createImpactEffect(coords, impactResults.devastationRadiusMeters);
-});
-
+// --- LÓGICA DE CÁLCULO (Permanece a mesma) ---
 function calculateImpact(massInMillionsTonnes, velocityInKms) {
     const JOULES_EM_UM_MEGATON = 4.184e15;
     const CONSTANTE_DEVASTACAO = 0.05;
-
-    const massaKg = massInMillionsTonnes * 1_000_000 * 1_000; // Converte de milhões de toneladas para kg
+    const massaKg = massInMillionsTonnes * 1_000_000 * 1_000;
     const velocidadeMps = velocityInKms * 1_000;
-
     const energiaCineticaJoules = 0.5 * massaKg * Math.pow(velocidadeMps, 2);
     const devastationRadiusMeters = CONSTANTE_DEVASTACAO * Math.pow(energiaCineticaJoules, 1 / 3);
-
     return {
         energyMegatons: energiaCineticaJoules / JOULES_EM_UM_MEGATON,
         devastationRadiusMeters: devastationRadiusMeters,
@@ -69,64 +53,86 @@ function calculateImpact(massInMillionsTonnes, velocityInKms) {
     };
 }
 
-function createImpactEffect(centerCoords, devastationRadiusMeters) {
+
+// --- LÓGICA DE VISUALIZAÇÃO (COMPLETAMENTE REFEITA) ---
+map.on('click', (e) => {
+    const coords = e.lngLat;
+    const meteorMassMillionsTonnes = parseFloat(massSlider.value);
+    const meteorVelocityKms = parseFloat(velocitySlider.value);
+
+    const impactResults = calculateImpact(meteorMassMillionsTonnes, meteorVelocityKms);
+    
+    energyResultP.textContent = `Energia Liberada: ${formatBigNumber(impactResults.energyMegatons)} Megatons`;
+    craterResultP.textContent = `Raio da Zona de Impacto: ~${formatBigNumber(impactResults.devastationRadiusKm)} km`;
+
+    // Chama a nova função de criação de impacto
+    createGradientCircleImpact(coords, impactResults.devastationRadiusMeters);
+});
+
+function createGradientCircleImpact(centerCoords, devastationRadiusMeters) {
     impactCounter++;
     const sourceId = `impact-source-${impactCounter}`;
-    const heatmapLayerId = `impact-heatmap-${impactCounter}`;
 
-    const heatmapPoints = { type: 'FeatureCollection', features: [] };
-    
-    // ================================================================================
-    // AQUI ESTÁ A MÁGICA: AUMENTAMOS MUITO O NÚMERO DE PONTOS
-    // ================================================================================
-    const numberOfPoints = 700; // Antes era 150, agora é muito mais denso!
-    // ================================================================================
-    
-    for (let i = 0; i < numberOfPoints; i++) {
-        const distanceKm = (Math.sqrt(Math.random()) * devastationRadiusMeters) / 1000;
-        const bearing = Math.random() * 360;
-        const point = turf.destination([centerCoords.lng, centerCoords.lat], distanceKm, bearing);
-        const magnitude = 1.0 - (distanceKm * 1000 / devastationRadiusMeters);
-        heatmapPoints.features.push({
+    // A fonte de dados agora é apenas um único ponto: o epicentro.
+    map.addSource(sourceId, {
+        type: 'geojson',
+        data: {
             type: 'Feature',
-            geometry: { type: 'Point', coordinates: point.geometry.coordinates },
-            properties: { mag: magnitude }
-        });
-    }
-    heatmapPoints.features.push({
-        type: 'Feature',
-        geometry: { type: 'Point', coordinates: [centerCoords.lng, centerCoords.lat] },
-        properties: { mag: 2.5 }
+            geometry: {
+                type: 'Point',
+                coordinates: [centerCoords.lng, centerCoords.lat]
+            }
+        }
     });
 
-    map.addSource(sourceId, { type: 'geojson', data: heatmapPoints });
+    // Define as "camadas" do nosso degradê
+    const gradientSteps = 15; // Número de anéis para simular o degradê
+    const startColor = [255, 255, 255]; // Branco
+    const midColor = [255, 0, 0]; // Vermelho
+    const endColor = [255, 165, 0]; // Laranja
 
-    map.addLayer({
-        id: heatmapLayerId,
-        type: 'heatmap',
-        source: sourceId,
-        paint: {
-            'heatmap-weight': ['get', 'mag'],
-            'heatmap-intensity': 2, // Aumenta a intensidade geral do "brilho"
-            'heatmap-color': [
-                'interpolate', ['linear'], ['heatmap-density'],
-                0, 'rgba(255, 200, 0, 0)',
-                0.25, 'rgba(255, 165, 0, 0.5)',
-                0.5, 'rgba(255, 69, 0, 0.7)',
-                0.75, 'rgba(255, 0, 0, 0.8)',
-                1, 'rgba(255, 255, 255, 0.95)'
-            ],
-            // ================================================================================
-            // TAMBÉM AUMENTAMOS O RAIO PARA FORÇAR A MISTURA DAS CORES
-            // ================================================================================
-            'heatmap-radius': [
-                'interpolate', ['linear'], ['zoom'],
-                0, 10,    // Raio maior em zoom baixo
-                9, 30,
-                15, 120   // Raio bem maior em zoom alto para garantir suavidade
-            ],
-            // ================================================================================
-            'heatmap-opacity': 0.8
+    // Cria cada anel do degradê, de dentro para fora
+    for (let i = 0; i < gradientSteps; i++) {
+        const t = i / (gradientSteps - 1); // Posição atual no degradê (0.0 a 1.0)
+        
+        // Interpola a cor
+        let r, g, b;
+        if (t < 0.5) {
+            const localT = t * 2;
+            r = startColor[0] + (midColor[0] - startColor[0]) * localT;
+            g = startColor[1] + (midColor[1] - startColor[1]) * localT;
+            b = startColor[2] + (midColor[2] - startColor[2]) * localT;
+        } else {
+            const localT = (t - 0.5) * 2;
+            r = midColor[0] + (endColor[0] - midColor[0]) * localT;
+            g = midColor[1] + (endColor[1] - midColor[1]) * localT;
+            b = midColor[2] + (endColor[2] - midColor[2]) * localT;
         }
-    }, 'waterway-label');
+        const color = `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
+
+        // O raio de cada anel aumenta
+        const radius = devastationRadiusMeters * (1 - t);
+        
+        // A opacidade de cada anel diminui
+        const opacity = 0.5 * (1 - t);
+
+        map.addLayer({
+            id: `impact-ring-${impactCounter}-${i}`,
+            type: 'circle',
+            source: sourceId,
+            paint: {
+                'circle-radius': [
+                    'interpolate',
+                    ['exponential', 2],
+                    ['zoom'],
+                    // Para um raio de X metros no chão, quantos pixels ele deve ter em cada zoom
+                    0, 0,
+                    22, ['/', radius, 0.005 * Math.cos(centerCoords.lat * Math.PI / 180)]
+                ],
+                'circle-color': color,
+                'circle-opacity': opacity,
+                'circle-blur': 1 // Adiciona um blur para suavizar a transição entre os anéis
+            }
+        });
+    }
 }
