@@ -86,35 +86,48 @@ function createGradientCircleImpact(centerCoords, devastationRadiusMeters, meteo
         }
     });
 
-    const gradientSteps = 20;
+    const gradientSteps = 25; // Aumentado para uma transição mais suave
     
     // ================================================================================
-    // AQUI ESTÁ O AJUSTE: OPACIDADE MÁXIMA REDUZIDA
+    // AQUI ESTÁ O AJUSTE CRÍTICO: OPACIDADE MÁXIMA MUITO MAIS BAIXA
     // ================================================================================
-    const maxOpacity = 0.45; // Antes era 0.65, agora é mais transparente
+    const maxOpacity = 0.25; // REDUZIDA AINDA MAIS para garantir a translucidez
     // ================================================================================
 
-    const hotZoneColor = [255, 255, 255]; // Branco
-    const midColor = [255, 0, 0];       // Vermelho
-    const endColor = [255, 165, 0];      // Laranja
+    const hotZoneColor = [255, 255, 255]; // Branco (será o centro)
+    const midColor = [255, 69, 0];       // Vermelho-Laranja (transição do centro para borda)
+    const endColor = [255, 165, 0];      // Laranja (borda externa)
 
-    // Cria cada anel do degradê
+    // Cria cada anel do degradê, de fora para dentro para a sobreposição correta
     for (let i = gradientSteps - 1; i >= 0; i--) {
-        const t = i / (gradientSteps - 1);
+        const t = i / (gradientSteps - 1); // Posição no degradê (0.0 a 1.0)
         const currentRadius = devastationRadiusMeters * t;
         
-        let color, opacity;
+        let color;
+        let opacity;
 
+        // LÓGICA DO DEGRADÊ E OPACIDADE
         if (currentRadius <= meteorRadiusMeters) {
-            color = `rgb(${hotZoneColor[0]}, ${hotZoneColor[1]}, ${hotZoneColor[2]})`;
+            // Se o anel está DENTRO do diâmetro do meteoro (o núcleo)
+            // A cor vai do branco para o vermelho-laranja, e a opacidade é maxOpacity
+            const localT = currentRadius / meteorRadiusMeters; // 0 no centro, 1 na borda do meteoro
+            const r = lerp(hotZoneColor[0], midColor[0], localT);
+            const g = lerp(hotZoneColor[1], midColor[1], localT);
+            const b = lerp(hotZoneColor[2], midColor[2], localT);
+            color = `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
             opacity = maxOpacity;
         } else {
-            const fadeT = (currentRadius - meteorRadiusMeters) / (devastationRadiusMeters - meteorRadiusMeters);
+            // Se está FORA do diâmetro do meteoro (a área de fade-out)
+            const fadeT = (currentRadius - meteorRadiusMeters) / (devastationRadiusMeters - meteorRadiusMeters); // 0 na borda do meteoro, 1 na borda da devastação
+            
+            // A cor vai do vermelho-laranja para o laranja
             const r = lerp(midColor[0], endColor[0], fadeT);
             const g = lerp(midColor[1], endColor[1], fadeT);
             const b = lerp(midColor[2], endColor[2], fadeT);
             color = `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
-            opacity = lerp(maxOpacity, 0, fadeT);
+
+            // A opacidade vai da maxOpacity para quase zero
+            opacity = lerp(maxOpacity, 0.05, fadeT); // O mínimo de 0.05 é para garantir que não desapareça bruscamente
         }
 
         map.addLayer({
@@ -129,7 +142,7 @@ function createGradientCircleImpact(centerCoords, devastationRadiusMeters, meteo
                 ],
                 'circle-color': color,
                 'circle-opacity': opacity,
-                'circle-blur': 0.5
+                'circle-blur': 0.7 // Aumentado um pouco o blur para suavizar mais a transição
             }
         });
     }
