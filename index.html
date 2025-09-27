@@ -4,34 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Simulador de Impacto de Meteoro</title>
-    <link href='https://api.mapbox.com/mapbox-gl-js/v2.9.1/mapbox-gl.css' rel='stylesheet' />
-    <link rel="stylesheet" href="style.css">
-    <script src='https://api.mapbox.com/mapbox-gl-js/v2.9.1/mapbox-gl.js'></script>
-    <script src='https://npmcdn.com/@turf/turf/turf.min.js'></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.9.1/mapbox-gl.css" rel="stylesheet" />
+    <link rel="stylesheet" href="css/styles.css">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.9.1/mapbox-gl.js"></script>
 </head>
 <body>
-    <div id='map'></div>
-    <div class="ui-container">
-        <h1>Simulador de Impacto</h1>
-        <p>Clique em no mapa para simular.</p>
-        
-        <label for="meteorSize">Diâmetro do Meteoro (metros):</label>
-        <input type="range" id="meteorSize" min="10" max="10000" value="50">
-        <span id="sizeValue">50 m</span>
-
-        <label for="meteorMass">Massa (Toneladas):</label>
-        <input type="range" id="meteorMass" min="100" max="10000000" value="50000">
-        <span id="massValue">50.000 t</span>
-
-        <label for="meteorVelocity">Velocidade (km/s):</label>
-        <input type="range" id="meteorVelocity" min="11" max="200" value="20"> <span id="velocityValue">20 km/s</span>
-
-        <div id="results" class="results-panel">
-            <h2>Último Impacto:</h2>
-            <p id="energyResult">Energia Liberada: -</p>
-            <p id="craterResult">Raio da Zona de Impacto: -</p>
-        </div>
+    <div id="map"></div>
+    <div class="ui-overlay">
+        <button id="createMeteorBtn" type="button">Create Meteor</button>
     </div>
-    <script src="script.js"></script>
+    <script src="scripts/Main.js"></script>
 </body>
 </html>
