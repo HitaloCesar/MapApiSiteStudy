@@ -89,9 +89,9 @@ function createGradientCircleImpact(centerCoords, devastationRadiusMeters, meteo
     const gradientSteps = 25; // Aumentado para uma transição mais suave
     
     // ================================================================================
-    // AQUI ESTÁ O AJUSTE CRÍTICO: OPACIDADE MÁXIMA MUITO MAIS BAIXA
+    // OPACIDADE MÁXIMA
     // ================================================================================
-    const maxOpacity = 0.25; // REDUZIDA AINDA MAIS para garantir a translucidez
+    const maxOpacity = 0.9;
     // ================================================================================
 
     const hotZoneColor = [255, 255, 255]; // Branco (será o centro)
