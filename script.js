@@ -91,7 +91,7 @@ function createGradientCircleImpact(centerCoords, devastationRadiusMeters, meteo
     // ================================================================================
     // OPACIDADE MÁXIMA
     // ================================================================================
-    const maxOpacity = 0.9;
+    const maxOpacity = 0.1;
     // ================================================================================
 
     const hotZoneColor = [255, 255, 255]; // Branco (será o centro)
